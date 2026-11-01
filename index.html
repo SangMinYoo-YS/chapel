@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="어디서든 함께 앉아 예배드리는 3D 온라인 예배당">
+<meta name="theme-color" content="#17130f">
+<meta property="og:title" content="랜선 예배당">
+<meta property="og:description" content="어디서든 함께 앉아 예배드리는 3D 온라인 예배당">
+<title>랜선 예배당</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+/* Layout: a 3D nave fills the top (walk, sit, pray together), then live-service card, prayer board, admin. Evening chapel, deliberately dark. */
+:root{
+  --night:#17130f;
+  --ink:#f3ebdd;
+  --muted:#ab9d89;
+  --candle:#f0c06a;
+  --ruby:#b2394f;
+  --sapphire:#3c6fae;
+  --emerald:#3f8a6a;
+  --line:rgba(243,235,221,.12);
+  --glass:rgba(23,19,15,.62);
+  --display:"Gowun Batang","Nanum Myeongjo",Georgia,serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--night);color:var(--ink)}
+body{font-family:var(--body);font-size:15px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
+.wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+h1,h2{font-family:var(--display);font-weight:700;text-wrap:balance;margin:0}
+h1{font-size:1.55rem}
+h2{font-size:1.2rem}
+.eyebrow{font-size:.72rem;letter-spacing:.14em;color:var(--candle);text-transform:uppercase}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--candle);outline-offset:2px}
+header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.count{display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--muted)}
+.flame{width:9px;height:13px;border-radius:50% 50% 45% 45%/60% 60% 40% 40%;background:radial-gradient(circle at 50% 70%,#fff3cf,var(--candle) 55%,#c46a2a);box-shadow:0 0 10px var(--candle);animation:flick 2.4s ease-in-out infinite}
+@keyframes flick{50%{transform:scaleY(.86) translateY(1px);opacity:.85}}
+
+/* ---------- 3D stage ---------- */
+.stage{position:relative;height:clamp(400px,70vh,640px);border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#120e0b;touch-action:none;user-select:none;-webkit-user-select:none}
+.stage canvas{display:block;width:100%;height:100%}
+.hud{position:absolute;left:10px;right:10px;display:flex;gap:8px;pointer-events:none}
+.hud.top{top:10px;justify-content:space-between;align-items:flex-start}
+.hud.bottom{bottom:12px;left:auto;right:10px;flex-direction:column;align-items:stretch;width:112px}
+.hud-r{display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:64%}
+.hud-r .hint{max-width:100%}
+.hud-r button.chip{cursor:pointer}
+.hud-r button.chip[aria-pressed="true"]{border-color:var(--candle);color:var(--candle)}
+.joy{position:absolute;left:max(14px,env(safe-area-inset-left,0px));bottom:14px;width:118px;height:118px;border-radius:50%;
+  background:radial-gradient(circle,rgba(243,235,221,.10),rgba(243,235,221,.04) 70%);border:1px solid rgba(243,235,221,.22);touch-action:none;z-index:2}
+.knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(240,192,106,.85);box-shadow:0 0 18px rgba(240,192,106,.5);transition:transform .12s}
+.joy.active .knob{transition:none}
+@media (hover:hover) and (pointer:fine){.joy{opacity:.55}}
+.chip{pointer-events:auto;background:var(--glass);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:.8rem;color:var(--ink)}
+.hint{border-radius:12px;font-size:.76rem;line-height:1.45;color:var(--muted)}
+.ctl{pointer-events:auto;flex:0 1 auto;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--glass);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);cursor:pointer;font-weight:500;font-size:.9rem}
+.ctl[aria-pressed="true"]{border-color:var(--candle);color:var(--candle);background:rgba(60,44,24,.75)}
+.ctl.amen{background:var(--candle);color:var(--night);border-color:var(--candle);font-family:var(--display);font-weight:700}
+.toast{position:absolute;left:50%;top:54px;transform:translateX(-50%);background:var(--glass);border:1px solid var(--line);padding:6px 14px;border-radius:99px;font-size:.82rem;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1}
+.fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--muted)}
+.loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-family:var(--display);color:var(--muted);background:#120e0b;transition:opacity .6s}
+.loading.done{opacity:0;pointer-events:none}
+
+/* ---------- live ---------- */
+.live-card{display:grid;gap:14px;padding:18px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(135deg,rgba(60,111,174,.10),rgba(178,57,79,.06))}
+.status{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.status strong{font-family:var(--display);font-size:1.25rem}
+.pill{font-size:.72rem;font-weight:600;letter-spacing:.08em;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.pill.on{background:var(--ruby);border-color:var(--ruby);color:#fff}
+.go{display:inline-flex;justify-content:center;align-items:center;padding:13px 18px;border-radius:10px;background:var(--ruby);color:#fff;text-decoration:none;font-weight:600}
+.go[aria-disabled="true"]{background:rgba(243,235,221,.08);color:var(--muted);pointer-events:none}
+.note{font-size:.82rem;color:var(--muted);margin:0}
+.sched{list-style:none;margin:0;padding:0;display:grid;gap:2px;font-variant-numeric:tabular-nums}
+.sched li{display:grid;grid-template-columns:44px 56px 1fr;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:.9rem}
+.sched li.now{color:var(--candle)}
+.sched .d{color:var(--muted)}
+
+/* ---------- prayers ---------- */
+.board{display:grid;gap:14px}
+form.ask{display:grid;gap:8px}
+textarea,input[type=url]{width:100%;background:rgba(243,235,221,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;resize:vertical}
+.row2{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.check{display:flex;align-items:center;gap:6px;font-size:.88rem;color:var(--muted)}
+.btn{padding:9px 16px;border-radius:9px;border:0;background:var(--candle);color:var(--night);font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.4;cursor:default}
+.list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.prayer{padding:14px 14px 10px;border-radius:12px;background:rgba(243,235,221,.04);border:1px solid var(--line);display:grid;gap:8px;min-width:0}
+.prayer p{margin:0;font-family:var(--display);font-size:1rem;line-height:1.65;overflow-wrap:anywhere}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.8rem;color:var(--muted);flex-wrap:wrap}
+.with{border:1px solid var(--line);background:none;border-radius:99px;padding:3px 11px;cursor:pointer;font-size:.8rem;color:var(--ink)}
+.with[aria-pressed="true"]{border-color:var(--candle);color:var(--candle)}
+.del{border:0;background:none;color:var(--muted);cursor:pointer;font-size:.78rem;text-decoration:underline}
+.empty{padding:22px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--muted);font-size:.9rem}
+details.admin{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+details.admin summary{cursor:pointer;font-weight:600}
+.admin form{display:grid;gap:12px;margin-top:12px}
+.admin label{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}
+.saved{font-size:.82rem;color:var(--emerald)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:480px){.ctl{padding:9px 11px;font-size:.84rem}.hud.bottom{width:96px}}
+.enter{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;
+  background:radial-gradient(ellipse at 50% 30%,rgba(240,192,106,.16),rgba(13,10,16,.88) 60%);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.enter[hidden]{display:none}
+.enter h2{font-size:1.6rem}
+.enter p{margin:0;color:var(--muted);font-size:.9rem}
+.enter input{width:min(260px,100%);text-align:center;background:rgba(243,235,221,.07);border:1px solid var(--line);border-radius:10px;padding:11px 12px;color:var(--ink);font:inherit}
+.enter .btn{padding:13px 28px;font-size:1rem;font-family:var(--display)}
+.demo{font-size:.78rem;color:var(--candle)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">Online Sanctuary</div>
+      <h1 id="church">랜선 예배당</h1>
+    </div>
+    <div class="count"><span class="flame" aria-hidden="true"></span><span id="count">지금 1명이 함께 예배 중</span></div>
+  </header>
+
+  <section class="stage" id="stage" aria-label="3D 예배당">
+    <div class="loading" id="loading"><span class="flame" aria-hidden="true"></span>예배당 문을 여는 중</div>
+    <form class="enter" id="enter" hidden>
+      <span class="flame" aria-hidden="true"></span>
+      <h2 id="enter-title">랜선 예배당</h2>
+      <p id="enter-sub">지금 <b id="enter-count">0</b>명이 앉아 예배드리고 있어요</p>
+      <input id="nick" maxlength="12" placeholder="이름 (비워 두면 '성도')" autocomplete="nickname">
+      <button class="btn" type="submit">예배당 들어가기</button>
+      <span class="demo" id="demo" hidden>체험 모드: 아직 서버가 연결되지 않아 혼자 둘러봐요</span>
+    </form>
+    <div class="hud top">
+      <span class="chip" id="where">입구에 서 있어요</span>
+      <span class="hud-r"><button class="chip" id="b-organ" aria-pressed="false">오르간 켜기</button>
+      <span class="chip hint" id="hint">바닥을 누르거나 왼쪽 조이스틱으로 걸어요. 장의자를 누르면 앉아요</span></span>
+    </div>
+    <div class="joy" id="joy" aria-label="이동 조이스틱"><div class="knob" id="knob"></div></div>
+    <div class="toast" id="toast"></div>
+    <div class="hud bottom">
+      <button class="ctl" id="b-pray" aria-pressed="false">기도</button>
+      <button class="ctl" id="b-praise" aria-pressed="false">찬양</button>
+      <button class="ctl amen" id="b-amen">아멘</button>
+      <button class="ctl" id="b-view" hidden>스크린 보기</button>
+      <button class="ctl" id="b-stand" hidden>일어서기</button>
+    </div>
+  </section>
+
+  <section class="live-card" aria-labelledby="live-h">
+    <div class="eyebrow" id="live-h">실시간 예배</div>
+    <div class="status"><span class="pill" id="pill">대기</span><strong id="statusText">다음 예배를 기다리는 중</strong></div>
+    <a class="go" id="go" target="_blank" rel="noopener" aria-disabled="true">예배 영상 링크 준비 중</a>
+    <p class="note" id="golink"></p>
+    <ul class="sched" id="sched"></ul>
+  </section>
+
+  <section class="board" aria-labelledby="pr-h">
+    <div>
+      <div class="eyebrow">Prayer Requests</div>
+      <h2 id="pr-h">기도제목 나눔</h2>
+    </div>
+    <form class="ask" id="ask">
+      <textarea id="ask-text" rows="3" maxlength="200" placeholder="함께 기도받고 싶은 제목을 적어 주세요 (200자)"></textarea>
+      <div class="row2">
+        <label class="check"><input type="checkbox" id="ask-anon" checked> 익명으로 올리기</label>
+        <button class="btn" id="ask-btn" type="submit">기도제목 올리기</button>
+      </div>
+      <p class="note" id="ask-note" hidden></p>
+    </form>
+    <ul class="list" id="prayers"></ul>
+  </section>
+
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+(() => {
+const DAYS=["일","월","화","수","목","금","토"];
+const DEFAULT={streamUrl:"",
+  slides:["랜선 예배당에 오신 것을 환영합니다\n— 어디서든 함께 드리는 예배",
+    "여호와는 나의 목자시니\n내가 부족함이 없으리로다\n— 시편 23:1",
+    "수고하고 무거운 짐 진 자들아\n다 내게로 오라\n내가 너희를 쉬게 하리라\n— 마태복음 11:28",
+    "두세 사람이 내 이름으로 모인 곳에는\n나도 그들 중에 있느니라\n— 마태복음 18:20"],
+  schedule:[{day:0,time:"09:00",name:"주일 1부 예배",dur:70},{day:0,time:"11:00",name:"주일 2부 예배",dur:90},
+    {day:3,time:"19:30",name:"수요 예배",dur:70},{day:5,time:"21:00",name:"금요 기도회",dur:90}]};
+const CFG=window.CHAPEL||{};
+const S={config:{streamUrl:CFG.streamUrl||"",slides:Array.isArray(CFG.slides)&&CFG.slides.length?CFG.slides:DEFAULT.slides,schedule:Array.isArray(CFG.schedule)&&CFG.schedule.length?CFG.schedule:DEFAULT.schedule},nick:"",entered:false,room:null,peers:[],myPeer:null,myId:null,canEdit:false,canWrite:null,db:null,user:null,profiles:{},prayers:null};
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+let toastT; function toast(t){const e=$("toast");e.textContent=t;e.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("on"),2200);}
+function hash(s){let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)}
+
+/* ================= schedule (KST) ================= */
+function kstNow(){const d=new Date(Date.now()+9*3600e3);return{day:d.getUTCDay(),min:d.getUTCHours()*60+d.getUTCMinutes()}}
+function toMin(t){const m=/^(\d{1,2}):(\d{2})$/.exec(t||"");return m?+m[1]*60+ +m[2]:null}
+function liveState(){const n=kstNow(),w=n.day*1440+n.min;let live=null,next=null,nextIn=Infinity;
+  for(const s of S.config.schedule||[]){const m=toMin(s.time);if(m===null)continue;const st=s.day*1440+m,dur=+s.dur||60;
+    let d=w-st;if(d<0)d+=10080;if(d<dur)live=s;let u=st-w;if(u<=0)u+=10080;if(u<nextIn){nextIn=u;next=s}}
+  return{live,next,nextIn}}
+function fmtIn(m){const d=Math.floor(m/1440),h=Math.floor(m%1440/60),mm=m%60;return d?d+"일 "+h+"시간 후":h?h+"시간 "+mm+"분 후":mm+"분 후"}
+function validUrl(u){try{const x=new URL(u);return x.protocol==="https:"?x.href:null}catch{return null}}
+let wasLive=null;
+function renderLive(){
+  const{live,next,nextIn}=liveState(),pill=$("pill"),go=$("go"),url=validUrl(S.config.streamUrl);
+  if(live){pill.textContent="LIVE";pill.classList.add("on");$("statusText").textContent=live.name+" 진행 중"}
+  else{pill.textContent="대기";pill.classList.remove("on");$("statusText").textContent=next?next.name+" · "+fmtIn(nextIn):"예배 시간이 아직 등록되지 않았어요"}
+  if(url){go.href=url;go.setAttribute("aria-disabled","false");go.textContent=live?"지금 실시간 예배 보기 ↗":"예배 채널 열기 ↗";$("golink").textContent="유튜브가 새 창에서 열려요. 예배당 화면은 켜 둔 채로 함께 앉아 계세요."}
+  else{go.removeAttribute("href");go.setAttribute("aria-disabled","true");go.textContent="예배 영상 링크 준비 중";$("golink").textContent="관리자가 유튜브 라이브 주소를 등록하면 여기서 바로 들어갈 수 있어요."}
+  const ul=$("sched");ul.textContent="";
+  [...(S.config.schedule||[])].sort((a,b)=>a.day-b.day||toMin(a.time)-toMin(b.time)).forEach(s=>{
+    const li=document.createElement("li");if(live===s)li.className="now";
+    for(const t of[(DAYS[s.day]||"?")+"요일",s.time,s.name]){const sp=document.createElement("span");sp.textContent=t;li.appendChild(sp)}
+    li.firstChild.className="d";ul.appendChild(li)});
+  if(!!live!==wasLive){wasLive=!!live;drawScreen()}
+}
+setInterval(renderLive,30000);
+
+/* ================= 3D ================= */
+const stage=$("stage");
+let drawScreen=()=>{};
+const W={ready:false};
+if(!window.THREE){ $("loading").textContent="3D 화면을 불러오지 못했어요. 새로고침해 주세요."; }
+else try{ init3D(); }catch(e){ console.error(e); $("loading").textContent="이 기기에서는 3D 화면을 열 수 없어요."; }
+
+function init3D(){
+  const T=THREE;
+  const renderer=new T.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  renderer.outputEncoding=T.sRGBEncoding;
+  renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
+  renderer.shadowMap.enabled=false;
+  stage.prepend(renderer.domElement);
+  const scene=new T.Scene();
+  scene.background=new T.Color(0x0d0a10);
+  scene.fog=new T.Fog(0x110d14,18,44);
+  const camera=new T.PerspectiveCamera(55,1,0.1,100);
+
+  // ---- textures
+  function canvasTex(w,h,draw){const c=document.createElement("canvas");c.width=w;c.height=h;draw(c.getContext("2d"),w,h);const t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;t.anisotropy=4;return t}
+  const floorTex=canvasTex(512,512,(g,w,h)=>{g.fillStyle="#4a3424";g.fillRect(0,0,w,h);
+    for(let y=0;y<h;y+=32){for(let x=(y/32%2)*64;x<w+128;x+=128){const v=hash(x+":"+y)%30-15;g.fillStyle=`rgb(${78+v},${55+v*.7},${38+v*.5})`;g.fillRect(x,y,126,30)}}
+    g.globalAlpha=.08;for(let i=0;i<900;i++){g.fillStyle=i%2?"#000":"#fff";g.fillRect(Math.random()*w,Math.random()*h,8+Math.random()*30,1)}});
+  floorTex.wrapS=floorTex.wrapT=T.RepeatWrapping;floorTex.repeat.set(4,7);
+  const glassTex=(seed)=>canvasTex(128,256,(g,w,h)=>{const pal=["#3c6fae","#b2394f","#f0c06a","#3f8a6a","#6b4fa0","#2e5a8f"];
+    g.fillStyle="#120c08";g.fillRect(0,0,w,h);
+    for(let y=0;y<h;y+=32)for(let x=0;x<w;x+=32){g.fillStyle=pal[(hash(seed+x+","+y))%pal.length];g.fillRect(x+3,y+3,26,26)}
+    g.fillStyle="rgba(255,240,200,.85)";g.fillRect(w/2-6,40,12,120);g.fillRect(w/2-30,72,60,12);
+    g.globalCompositeOperation="destination-in";g.beginPath();g.moveTo(0,h);g.lineTo(0,w/2);g.arc(w/2,w/2,w/2,Math.PI,0);g.lineTo(w,h);g.closePath();g.fill()});
+  const glowTex=(col)=>{const t=canvasTex(128,128,(g,w,h)=>{const r=g.createRadialGradient(64,64,4,64,64,64);r.addColorStop(0,col);r.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=r;g.fillRect(0,0,w,h)});return t};
+
+  // ---- room 15 x 28, side walls 7m, barrel vault above
+  const ROOM={x:7.5,zMin:-15,zMax:13,h:7};
+  const stoneTex=canvasTex(256,256,(g,w,h)=>{g.fillStyle="#6d5f52";g.fillRect(0,0,w,h);
+    for(let y=0;y<h;y+=32)for(let x=(y/32%2)*32;x<w+64;x+=64){const v=hash(x+"s"+y)%22-11;g.fillStyle=`rgb(${112+v},${98+v},${84+v})`;g.fillRect(x+1,y+1,62,30)}});
+  stoneTex.wrapS=stoneTex.wrapT=T.RepeatWrapping;stoneTex.repeat.set(5,2);
+  const stone=new T.MeshLambertMaterial({map:stoneTex,color:0xcfc4b6});
+  const floorM=new T.MeshLambertMaterial({map:floorTex,color:0xb9a48e});
+  const floor=new T.Mesh(new T.PlaneGeometry(15,28),floorM);
+  floor.rotation.x=-Math.PI/2;floor.position.z=-1;scene.add(floor);
+  const carpet=new T.Mesh(new T.PlaneGeometry(1.5,22),new T.MeshLambertMaterial({color:0x6e1726}));
+  carpet.rotation.x=-Math.PI/2;carpet.position.set(0,.012,1);scene.add(carpet);
+  const backM=new T.MeshLambertMaterial({color:0x2a2230});
+  const walls=new T.Mesh(new T.BoxGeometry(15,ROOM.h,28),[stone,stone,new T.MeshBasicMaterial({visible:false}),floorM,backM,stone]);
+  walls.material.forEach(m=>m.side=T.BackSide);walls.position.set(0,ROOM.h/2,-1);scene.add(walls);
+  const vault=new T.Mesh(new T.CylinderGeometry(7.5,7.5,28,32,1,true,-Math.PI/2,Math.PI),new T.MeshLambertMaterial({color:0x3a3140,side:T.BackSide}));
+  vault.position.set(0,7,-1);vault.rotation.set(-Math.PI/2,0,0);scene.add(vault);
+  // end-wall lunettes so the vault is closed
+  for(const z of[-14.98,12.98]){const l=new T.Mesh(new T.CircleGeometry(7.5,32,0,Math.PI),backM);l.position.set(0,7,z);if(z>0)l.rotation.y=Math.PI;scene.add(l)}
+  const ribM=new T.MeshLambertMaterial({color:0x8a7356});
+  for(let z=-13;z<=11;z+=4){const r=new T.Mesh(new T.TorusGeometry(7.35,.12,6,40,Math.PI),ribM);r.position.set(0,7,z);scene.add(r)}
+  // columns with capitals
+  const colM=new T.MeshLambertMaterial({color:0xb6a48c});
+  for(let z=-9;z<=11;z+=5)for(const x of[-6.6,6.6]){const c=new T.Mesh(new T.CylinderGeometry(.26,.32,7,14),colM);c.position.set(x,3.5,z);scene.add(c);
+    const cap=new T.Mesh(new T.BoxGeometry(.8,.3,.8),ribM);cap.position.set(x,7.05,z);scene.add(cap)}
+  // lancet windows, light shafts, light pools
+  const beamTex=canvasTex(64,256,(g,w,h)=>{const v=g.createLinearGradient(0,0,0,h);v.addColorStop(0,"rgba(255,255,255,.9)");v.addColorStop(.6,"rgba(255,255,255,.25)");v.addColorStop(1,"rgba(255,255,255,0)");
+    g.fillStyle=v;g.fillRect(0,0,w,h);g.globalCompositeOperation="destination-in";const hz=g.createLinearGradient(0,0,w,0);hz.addColorStop(0,"rgba(0,0,0,0)");hz.addColorStop(.5,"#000");hz.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=hz;g.fillRect(0,0,w,h)});
+  const shafts=[];
+  function shaft(from,to,width,color,op){const dir=new T.Vector3().subVectors(to,from),len=dir.length();
+    const grp=new T.Group();const m=new T.MeshBasicMaterial({map:beamTex,color,transparent:true,opacity:op,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide});
+    for(let k=0;k<2;k++){const pl=new T.Mesh(new T.PlaneGeometry(width,len),m);pl.rotation.y=k*Math.PI/2;grp.add(pl)}
+    grp.position.copy(from).add(dir.clone().multiplyScalar(.5));grp.quaternion.setFromUnitVectors(new T.Vector3(0,-1,0),dir.clone().normalize());
+    scene.add(grp);shafts.push({m,op,ph:Math.random()*6});return grp}
+  const winZ=[-7,-2,3,8],winCols=[0x5d8fd6,0xd35a6e,0xf0c06a,0x5fb08a];
+  winZ.forEach((z,i)=>{for(const side of[-1,1]){
+    const win=new T.Mesh(new T.PlaneGeometry(1.5,4.4),new T.MeshBasicMaterial({map:glassTex(i*2+(side>0)),transparent:true}));
+    win.position.set(side*7.46,4.3,z);win.rotation.y=-side*Math.PI/2;scene.add(win);
+    const wg=new T.Sprite(new T.SpriteMaterial({map:glowTex("rgba(150,170,230,.35)"),transparent:true,depthWrite:false,blending:T.AdditiveBlending}));wg.scale.set(3,5,1);wg.position.set(side*7.3,4.3,z);scene.add(wg);
+    const col=winCols[(i+(side>0?1:0))%4];
+    if(side<0)shaft(new T.Vector3(side*7.3,5,z),new T.Vector3(side*2.6,0,z+2.4),1.4,col,.16);
+    const pool=new T.Mesh(new T.PlaneGeometry(2.6,1.8),new T.MeshBasicMaterial({map:glowTex("rgba(255,255,255,.55)"),color:col,transparent:true,depthWrite:false,blending:T.AdditiveBlending}));
+    pool.rotation.x=-Math.PI/2;pool.position.set(side*(side<0?2.9:5.6),.02,z+(side<0?2.2:.4));scene.add(pool)}});
+  // rose window above the cross
+  const roseTex=canvasTex(256,256,(g,w,h)=>{const pal=["#3c6fae","#b2394f","#f0c06a","#3f8a6a","#6b4fa0"];g.translate(128,128);
+    for(let ring=4;ring>=1;ring--){for(let k=0;k<12;k++){g.save();g.rotate(k*Math.PI/6+ring*.26);g.fillStyle=pal[(k+ring)%pal.length];
+      g.beginPath();g.ellipse(ring*24,0,20,11,0,0,7);g.fill();g.restore()}}
+    g.fillStyle="#f6e3b4";g.beginPath();g.arc(0,0,16,0,7);g.fill();
+    g.globalCompositeOperation="destination-in";g.beginPath();g.arc(0,0,124,0,7);g.fill()});
+  const rose=new T.Mesh(new T.CircleGeometry(1.9,48),new T.MeshBasicMaterial({map:roseTex,transparent:true}));rose.position.set(0,11.2,-14.95);scene.add(rose);
+  const roseRing=new T.Mesh(new T.TorusGeometry(1.95,.12,8,48),ribM);roseRing.position.copy(rose.position);scene.add(roseRing);
+  // chancel platform
+  const wood=new T.MeshLambertMaterial({color:0x3f2a1b}),woodHi=new T.MeshLambertMaterial({color:0x5c3d26});
+  const plat=new T.Mesh(new T.BoxGeometry(12,.45,4.6),new T.MeshLambertMaterial({color:0x9a8a78}));plat.position.set(0,.225,-12.7);scene.add(plat);
+  for(let k=0;k<2;k++){const st=new T.Mesh(new T.BoxGeometry(6-k,.15,.4),new T.MeshLambertMaterial({color:0x8c7c6a}));st.position.set(0,.075+k*.15,-10.15-k*.35);scene.add(st)}
+  const altar=new T.Mesh(new T.BoxGeometry(2.6,1,1),new T.MeshLambertMaterial({color:0xf2ece0}));altar.position.set(0,.95,-12.6);scene.add(altar);
+  const altarCloth=new T.Mesh(new T.BoxGeometry(.6,1.02,1.02),new T.MeshLambertMaterial({color:0x6e1726}));altarCloth.position.copy(altar.position);scene.add(altarCloth);
+  const bible=new T.Mesh(new T.BoxGeometry(.5,.08,.36),new T.MeshLambertMaterial({color:0x2b1a12}));bible.position.set(0,1.49,-12.6);scene.add(bible);
+  const pulpit=new T.Mesh(new T.CylinderGeometry(.5,.42,1.3,8),woodHi);pulpit.position.set(3.4,1.1,-11.4);scene.add(pulpit);
+  // candles: altar pair, two candelabra, a votive stand
+  const flames=[];
+  const waxM=new T.MeshLambertMaterial({color:0xf3ece0}),flameM=new T.MeshBasicMaterial({color:0xffd27a}),brass=new T.MeshLambertMaterial({color:0xb08a46});
+  const flameGlow=glowTex("rgba(255,196,110,.95)");
+  function candle(x,y,z,hgt,light,gs){const c=new T.Mesh(new T.CylinderGeometry(.045,.045,hgt,8),waxM);c.position.set(x,y+hgt/2,z);scene.add(c);
+    const f=new T.Mesh(new T.SphereGeometry(.045,8,8),flameM);f.scale.y=1.8;f.position.set(x,y+hgt+.07,z);scene.add(f);
+    const g=new T.Sprite(new T.SpriteMaterial({map:flameGlow,transparent:true,depthWrite:false,blending:T.AdditiveBlending}));g.scale.setScalar(gs||.6);g.position.copy(f.position);scene.add(g);
+    let l=null;if(light){l=new T.PointLight(0xffb057,1.2,10,2);l.position.set(x,y+hgt+.3,z+.3);scene.add(l)}
+    flames.push({f,g,l,gs:gs||.6})}
+  candle(-.9,1.45,-12.6,.5,true,.8);candle(.9,1.45,-12.6,.5,false,.8);
+  for(const sx of[-1,1]){const x=sx*4.6,z=-11.6;
+    const pole=new T.Mesh(new T.CylinderGeometry(.05,.12,1.6,8),brass);pole.position.set(x,1.25,z);scene.add(pole);
+    const arm=new T.Mesh(new T.BoxGeometry(.9,.05,.05),brass);arm.position.set(x,2.05,z);scene.add(arm);
+    candle(x-.42,2.08,z,.35,false,.5);candle(x,2.08,z,.45,true,.6);candle(x+.42,2.08,z,.35,false,.5)}
+  const rack=new T.Mesh(new T.BoxGeometry(1.6,.7,.5),brass);rack.position.set(-5.6,.35,-9.4);scene.add(rack);
+  for(let k=0;k<10;k++)candle(-6.25+(k%5)*.32,.7,-9.5+(k<5?-.1:.12),.08,k===4,.35);
+  // screen
+  const scrCanvas=document.createElement("canvas");scrCanvas.width=1280;scrCanvas.height=720;
+  const scrTex=new T.CanvasTexture(scrCanvas);scrTex.encoding=T.sRGBEncoding;scrTex.anisotropy=8;
+  const scrFrame=new T.Mesh(new T.BoxGeometry(7,4.1,.12),new T.MeshLambertMaterial({color:0x2a1e15}));scrFrame.position.set(0,4.4,-14.9);scene.add(scrFrame);
+  const screen=new T.Mesh(new T.PlaneGeometry(6.6,3.71),new T.MeshBasicMaterial({map:scrTex,toneMapped:false}));screen.position.set(0,4.4,-14.83);scene.add(screen);
+  const scrGlow=new T.Mesh(new T.PlaneGeometry(10,6),new T.MeshBasicMaterial({map:glowTex("rgba(150,170,230,.28)"),transparent:true,depthWrite:false,blending:T.AdditiveBlending}));scrGlow.position.set(0,4.4,-14.88);scene.add(scrGlow);
+  // the cross, lit from within, with a light falling on the altar
+  const gold=new T.MeshBasicMaterial({color:0xffd98a,toneMapped:false});
+  const cv=new T.Mesh(new T.BoxGeometry(.24,2,.12),gold);cv.position.set(0,7.6,-14.85);scene.add(cv);
+  const ch=new T.Mesh(new T.BoxGeometry(1.2,.24,.12),gold);ch.position.set(0,8,-14.85);scene.add(ch);
+  const rayTex=canvasTex(256,256,(g,w,h)=>{g.translate(128,128);for(let k=0;k<24;k++){g.rotate(Math.PI/12);const gr=g.createLinearGradient(0,0,120,0);gr.addColorStop(0,"rgba(255,220,150,.5)");gr.addColorStop(1,"rgba(255,220,150,0)");
+    g.fillStyle=gr;g.beginPath();g.moveTo(0,0);g.lineTo(124,k%2?-3:-6);g.lineTo(124,k%2?3:6);g.fill()}});
+  const crossRays=new T.Sprite(new T.SpriteMaterial({map:rayTex,transparent:true,depthWrite:false,blending:T.AdditiveBlending}));crossRays.scale.set(5.5,5.5,1);crossRays.position.set(0,7.7,-14.75);scene.add(crossRays);
+  const crossGlow=new T.Sprite(new T.SpriteMaterial({map:glowTex("rgba(255,214,140,.75)"),transparent:true,depthWrite:false,blending:T.AdditiveBlending}));crossGlow.scale.set(3.6,3.6,1);crossGlow.position.set(0,7.7,-14.7);scene.add(crossGlow);
+  shaft(new T.Vector3(0,13.5,-13.6),new T.Vector3(0,0,-12.2),3.2,0xffe2a8,.2);
+  // dust drifting through the light
+  const DUST=360,dPos=new Float32Array(DUST*3),dSeed=new Float32Array(DUST);
+  for(let i=0;i<DUST;i++){dPos[i*3]=(Math.random()-.5)*13;dPos[i*3+1]=Math.random()*8;dPos[i*3+2]=-13+Math.random()*24;dSeed[i]=Math.random()*6.28}
+  const dGeo=new T.BufferGeometry();dGeo.setAttribute("position",new T.BufferAttribute(dPos,3));
+  const dust=new T.Points(dGeo,new T.PointsMaterial({map:glowTex("rgba(255,236,200,1)"),size:.07,transparent:true,opacity:.55,depthWrite:false,blending:T.AdditiveBlending,color:0xffe6c0}));scene.add(dust);
+  // lights: dim cool nave, warm chancel
+  scene.add(new T.HemisphereLight(0xb9bfdc,0x1a120c,.5));
+  const moon=new T.DirectionalLight(0x9fb4e8,.35);moon.position.set(-8,8,2);scene.add(moon);
+  const front=new T.SpotLight(0xffdca0,1.4,30,.5,.6,1.2);front.position.set(0,12,-8);front.target.position.set(0,0,-12.5);scene.add(front);scene.add(front.target);
+  const naveWarm=new T.PointLight(0xffc88a,.45,22,1.6);naveWarm.position.set(0,5,2);scene.add(naveWarm);
+
+  // pews: 10 rows, 2 blocks of 4 seats
+  const ROWS=10,PER=4,ROWZ=r=>-7.4+r*1.75,XS=[1.72,2.82,3.92,5.02];
+  const seats=[],blocks=[],seatHits=[];
+  const seatHitM=new T.MeshBasicMaterial({visible:false});
+  for(let r=0;r<ROWS;r++){const z=ROWZ(r);
+    for(const side of[-1,1]){
+      const cx=side*3.37;
+      const seat=new T.Mesh(new T.BoxGeometry(4.5,.09,.5),woodHi);seat.position.set(cx,.46,z+.05);scene.add(seat);
+      const back=new T.Mesh(new T.BoxGeometry(4.5,.85,.08),wood);back.position.set(cx,.82,z+.33);back.rotation.x=-.08;scene.add(back);
+      for(const ex of[-2.25,2.25]){const e=new T.Mesh(new T.BoxGeometry(.08,.95,.62),wood);e.position.set(cx+ex,.48,z+.08);scene.add(e)}
+      blocks.push({x0:cx-2.3,x1:cx+2.3,z0:z-.22,z1:z+.4});
+      for(let k=0;k<PER;k++){const i=seats.length;const x=side*XS[side<0?k:k];
+        seats.push({x,z:z+.06,approach:{x,z:z-.62},row:r});
+        const hit=new T.Mesh(new T.BoxGeometry(1.05,1.2,.9),seatHitM);hit.position.set(x,.6,z+.1);hit.userData.seat=i;scene.add(hit);seatHits.push(hit)}
+    }}
+  const PEWZ0=ROWZ(0)-.3,PEWZ1=ROWZ(ROWS-1)+.45;
+
+  // ---- avatars
+  const SKIN=0xf0cfab,HAIR=0x3a2a20,ROBES=[0xf2ece0,0xdce6f0,0xf0e0cc,0xdfeadc,0xeedfe6];
+  function label(text,me){const c=document.createElement("canvas");c.width=256;c.height=64;const g=c.getContext("2d");
+    g.font="600 30px 'IBM Plex Sans KR',sans-serif";const w=Math.min(240,g.measureText(text).width+28);
+    g.fillStyle=me?"#f0c06a":"rgba(23,19,15,.72)";g.beginPath();g.roundRect?g.roundRect(128-w/2,10,w,44,22):g.rect(128-w/2,10,w,44);g.fill();
+    g.fillStyle=me?"#17130f":"#f3ebdd";g.textAlign="center";g.textBaseline="middle";g.fillText(text,128,33);
+    const t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;const s=new T.Sprite(new T.SpriteMaterial({map:t,transparent:true,depthTest:false}));s.scale.set(1.1,.275,1);s.renderOrder=5;return s}
+  function makeAvatar(robeColor,me){
+    const g=new T.Group(),body=new T.Group();g.add(body);
+    const robeM=new T.MeshLambertMaterial({color:robeColor});
+    const robe=new T.Mesh(new T.CylinderGeometry(.2,.4,.86,16),robeM);robe.position.y=.43;body.add(robe);
+    const stoleM=new T.MeshLambertMaterial({color:me?0xd9a441:0x8e2335});
+    for(const sx of[-.08,.08]){const s=new T.Mesh(new T.BoxGeometry(.06,.62,.03),stoleM);s.position.set(sx,.52,.27);s.rotation.x=-.22;body.add(s)}
+    const collar=new T.Mesh(new T.TorusGeometry(.17,.035,6,16),stoleM);collar.rotation.x=Math.PI/2;collar.position.y=.86;body.add(collar);
+    const head=new T.Group();head.position.y=1.14;body.add(head);
+    head.add(new T.Mesh(new T.SphereGeometry(.31,20,16),new T.MeshLambertMaterial({color:SKIN})));
+    const hair=new T.Mesh(new T.SphereGeometry(.325,20,12,0,Math.PI*2,0,Math.PI*.52),new T.MeshLambertMaterial({color:HAIR}));hair.rotation.x=-.35;head.add(hair);
+    const eyeM=new T.MeshBasicMaterial({color:0x2a1d14});
+    const eyes=[];for(const ex of[-.11,.11]){const e=new T.Mesh(new T.SphereGeometry(.035,8,8),eyeM);e.position.set(ex,-.02,.285);head.add(e);eyes.push(e)}
+    const cheekM=new T.MeshBasicMaterial({color:0xf0a8a0,transparent:true,opacity:.55});
+    for(const ex of[-.18,.18]){const c=new T.Mesh(new T.CircleGeometry(.05,12),cheekM);c.position.set(ex,-.09,.27);c.lookAt(ex*3,-.3,2);head.add(c)}
+    const arms=[];for(const sx of[-1,1]){const p=new T.Group();p.position.set(sx*.24,.8,0);
+      const a=new T.Mesh(new T.CylinderGeometry(.065,.08,.42,8),robeM);a.position.y=-.2;p.add(a);
+      const h=new T.Mesh(new T.SphereGeometry(.065,8,8),new T.MeshLambertMaterial({color:SKIN}));h.position.y=-.43;p.add(h);
+      body.add(p);arms.push(p)}
+    const halo=new T.Mesh(new T.TorusGeometry(.2,.02,6,24),new T.MeshBasicMaterial({color:0xf0c06a,transparent:true,opacity:0}));halo.rotation.x=Math.PI/2;halo.position.y=.42;head.add(halo);
+    const shadow=new T.Mesh(new T.CircleGeometry(.42,20),new T.MeshBasicMaterial({color:0,transparent:true,opacity:.28,depthWrite:false}));shadow.rotation.x=-Math.PI/2;shadow.position.y=.015;g.add(shadow);
+    scene.add(g);
+    return{g,body,head,arms,eyes,halo,shadow,label:null,bubbles:[],walkT:0,pose:"stand",sitting:false};
+  }
+  function setLabel(av,text,me){if(av.labelText===text)return;av.labelText=text;if(av.label){av.g.remove(av.label);av.label.material.map.dispose();av.label.material.dispose()}
+    av.label=label(text,me);av.label.position.y=1.92;av.g.add(av.label)}
+  function amenBubble(av){const s=label("아멘",true);s.scale.set(.9,.225,1);s.position.y=1.9;av.g.add(s);av.bubbles.push({s,t:0})}
+  function animate(av,dt,moving){
+    av.walkT+=dt*(moving?9:0);
+    const p=av.pose,sit=av.sitting;
+    let ax=0,az=.12,hx=0,halo=0;
+    if(p==="pray"){ax=-1.15;az=-.42;hx=.28;halo=.85}
+    else if(p==="praise"){ax=0;az=2.55}
+    else if(moving){ax=Math.sin(av.walkT)*.55}
+    av.arms.forEach((a,i)=>{const s=i?1:-1;
+      const tx=p==="stand"&&moving?ax*s:ax, tz=(p==="pray"?-az:az)*s;
+      a.rotation.x+=(tx-a.rotation.x)*Math.min(1,dt*10);a.rotation.z+=(tz*1-a.rotation.z)*Math.min(1,dt*10)});
+    if(p==="praise"){av.arms.forEach((a,i)=>a.rotation.z+=Math.sin(performance.now()/300+i)*.004)}
+    av.head.rotation.x+=(hx-av.head.rotation.x)*Math.min(1,dt*8);
+    av.eyes.forEach(e=>e.scale.y=p==="pray"?.25:1);
+    av.halo.material.opacity+=(halo*(.6+.4*Math.sin(performance.now()/500))-av.halo.material.opacity)*Math.min(1,dt*6);
+    const by=sit?.12:(moving?Math.abs(Math.sin(av.walkT))*.05:0);
+    av.body.position.y+=(by-av.body.position.y)*Math.min(1,dt*12);
+    av.body.scale.y+=((sit?.88:1)-av.body.scale.y)*Math.min(1,dt*10);
+    av.shadow.visible=!sit;
+    for(let i=av.bubbles.length-1;i>=0;i--){const b=av.bubbles[i];b.t+=dt;b.s.position.y=1.9+b.t*.5;b.s.material.opacity=Math.max(0,1-Math.max(0,b.t-1.6));
+      if(b.t>2.6){av.g.remove(b.s);b.s.material.map.dispose();b.s.material.dispose();av.bubbles.splice(i,1)}}
+  }
+
+  // ---- me
+  const me=makeAvatar(ROBES[0],true);setLabel(me,"나",true);
+  const P={x:0,z:11.2,ry:Math.PI,pose:"stand",sit:null,path:[],pendingSeat:null,amen:0};
+  me.g.position.set(P.x,0,P.z);me.g.rotation.y=P.ry;
+
+  // ---- collision & paths
+  const R=.22;
+  function blocked(x,z){if(x<-ROOM.x+.45||x>ROOM.x-.45||z<-10.1||z>ROOM.zMax-.4)return true;
+    for(const c of[-6.6,6.6])for(let cz=-9;cz<=11;cz+=5)if(Math.hypot(x-c,z-cz)<.55)return true;
+    for(const b of blocks)if(x>b.x0-R&&x<b.x1+R&&z>b.z0-R&&z<b.z1+R)return true;return false}
+  // grid pathfinding (BFS) so walkers use aisles and the gaps between pews
+  const GS=.25,GX0=-7.05,GZ0=-10.05,NX=Math.floor(14.1/GS)+1,NZ=Math.floor(22.6/GS)+1;
+  const free=new Uint8Array(NX*NZ);
+  for(let j=0;j<NZ;j++)for(let i=0;i<NX;i++)free[j*NX+i]=blocked(GX0+i*GS,GZ0+j*GS)?0:1;
+  function nearestFree(x,z){let bi=-1,bd=1e9;const ci=Math.round((x-GX0)/GS),cj=Math.round((z-GZ0)/GS);
+    for(let r=0;r<8&&bi<0;r++)for(let j=cj-r;j<=cj+r;j++)for(let i=ci-r;i<=ci+r;i++){if(i<0||j<0||i>=NX||j>=NZ||!free[j*NX+i])continue;
+      const d=Math.hypot(GX0+i*GS-x,GZ0+j*GS-z);if(d<bd){bd=d;bi=j*NX+i}}return bi}
+  function los(ax,az,bx,bz){const n=Math.ceil(Math.hypot(bx-ax,bz-az)/.08);for(let k=1;k<=n;k++){const t=k/n;if(blocked(ax+(bx-ax)*t,az+(bz-az)*t))return false}return true}
+  function planPath(tx,tz){
+    if(los(P.x,P.z,tx,tz))return[{x:tx,z:tz}];
+    const s=nearestFree(P.x,P.z),g=nearestFree(tx,tz);if(s<0||g<0)return[];
+    const prev=new Int32Array(NX*NZ).fill(-1);prev[s]=s;const q=[s];let h=0;
+    const N8=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    while(h<q.length){const c=q[h++];if(c===g)break;const ci=c%NX,cj=(c/NX)|0;
+      for(const[di,dj]of N8){const i=ci+di,j=cj+dj;if(i<0||j<0||i>=NX||j>=NZ)continue;const n=j*NX+i;
+        if(!free[n]||prev[n]>=0)continue;if(di&&dj&&(!free[cj*NX+i]||!free[j*NX+ci]))continue;prev[n]=c;q.push(n)}}
+    if(prev[g]<0)return[];
+    const raw=[];for(let c=g;c!==s;c=prev[c])raw.push({x:GX0+(c%NX)*GS,z:GZ0+((c/NX)|0)*GS});raw.reverse();
+    if(!blocked(tx,tz))raw.push({x:tx,z:tz});
+    // smooth with line of sight
+    const out=[];let cx=P.x,cz=P.z,k=0;
+    while(k<raw.length){let far=k;for(let m=raw.length-1;m>k;m--){if(los(cx,cz,raw[m].x,raw[m].z)){far=m;break}}
+      out.push(raw[far]);cx=raw[far].x;cz=raw[far].z;k=far+1}
+    return out}
+
+  // ---- occupancy
+  function seatOwner(i){let best=null;for(const p of S.peers){if(p.kind!=="viewer"||p.sameTab)continue;if(p.presence&&p.presence.sit===i&&(!best||p.peer<best.peer))best=p}return best}
+  function trySit(i){
+    const o=seatOwner(i);if(o){toast("다른 분이 앉아 계신 자리예요");return}
+    const s=seats[i];standUp(true);P.pendingSeat=i;P.path=planPath(s.approach.x,s.approach.z);
+  }
+  function sitDown(i){P.sit=i;P.pendingSeat=null;P.path=[];const s=seats[i];P.x=s.x;P.z=s.z;P.ry=Math.atan2(-s.x,-14.8-s.z);me.sitting=true;seatedView(true);
+    $("b-stand").hidden=false;$("where").textContent=(seats[i].row+1)+"번째 줄에 앉았어요";send(true)}
+  function standUp(quiet){if(P.sit===null)return;const s=seats[P.sit];P.sit=null;me.sitting=false;P.x=s.approach.x;P.z=s.approach.z;$("b-stand").hidden=true;seatedView(false);camGoal={yaw:Math.atan2(Math.sin(yaw),Math.cos(yaw)),pitch:.42,dist:5.6};if(!quiet){$("where").textContent="걸어 다니는 중";send(true)}}
+  $("b-stand").onclick=()=>standUp(false);
+  function setPose(p){P.pose=P.pose===p?"stand":p;me.pose=P.pose;$("b-pray").setAttribute("aria-pressed",P.pose==="pray");$("b-praise").setAttribute("aria-pressed",P.pose==="praise");send(true)}
+  $("b-pray").onclick=()=>setPose("pray");$("b-praise").onclick=()=>setPose("praise");
+  $("b-amen").onclick=()=>{P.amen=Date.now();amenBubble(me);send(true)};
+
+  // ---- presence
+  let lastSent=0,dirty=false;
+  function send(now){dirty=true;if(now)flush()}
+  function flush(){if(!S.room||!dirty)return;const t=performance.now();if(t-lastSent<140)return;lastSent=t;dirty=false;
+    S.room.presence({x:+P.x.toFixed(2),z:+P.z.toFixed(2),ry:+P.ry.toFixed(2),pose:P.pose,sit:P.sit,amen:P.amen}).catch(()=>{})}
+  W.onConnected=()=>{dirty=true;lastSent=0;flush()};
+
+  // ---- others
+  const others=new Map();
+  W.syncPeers=()=>{
+    const live=new Set();
+    for(const p of S.peers){if(p.kind!=="viewer"||p.sameTab)continue;const pr=p.presence||{};
+      if(typeof pr.x!=="number"||typeof pr.z!=="number")continue;live.add(p.peer);
+      let o=others.get(p.peer);
+      if(!o){o={av:makeAvatar(ROBES[1+hash(p.peer)%(ROBES.length-1)],false),amen:pr.amen||0};o.av.g.position.set(pr.x,0,pr.z);others.set(p.peer,o)}
+      o.tx=Math.max(-7,Math.min(7,pr.x));o.tz=Math.max(-14,Math.min(13,pr.z));o.ry=typeof pr.ry==="number"?pr.ry:0;
+      o.av.pose=["pray","praise"].includes(pr.pose)?pr.pose:"stand";o.av.sitting=Number.isInteger(pr.sit);
+      if(typeof pr.amen==="number"&&pr.amen>o.amen){o.amen=pr.amen;if(Date.now()-pr.amen<8000)amenBubble(o.av)}
+      setLabel(o.av,nameOf(p),false)}
+    for(const[k,o]of others)if(!live.has(k)){scene.remove(o.av.g);others.delete(k)}
+    // lost a seat tie?
+    if(P.sit!==null){const o=seatOwner(P.sit);if(o&&S.myPeer&&o.peer<S.myPeer){standUp(false);toast("다른 분이 먼저 앉으셨어요")}}
+  };
+
+  // ---- camera control
+  let yaw=0,pitch=.42,dist=5.6,camGoal=null,screenLook=false;
+  const SCREEN_AIM=new T.Vector3(0,4.4,-14.8);
+  // seated: camera drops behind the shoulder and turns to the screen
+  function seatedView(on){screenLook=on;$("b-view").hidden=true;
+    if(on){camGoal={yaw:Math.atan2(P.x,P.z+14.8),pitch:.2,dist:2.4}}}
+  $("b-view").onclick=()=>{if(P.sit!==null)seatedView(true)};
+  const ptrs=new Map();let drag=null,pinch=null;
+  const cvs=renderer.domElement;
+  cvs.addEventListener("pointerdown",e=>{cvs.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,moved:false};
+    if(ptrs.size===2){const[a,b]=[...ptrs.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),dist};drag&&(drag.moved=true)}});
+  cvs.addEventListener("pointermove",e=>{if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinch&&ptrs.size===2){const[a,b]=[...ptrs.values()];camGoal=null;dist=Math.max(2.4,Math.min(11,pinch.dist*pinch.d/Math.max(20,Math.hypot(a.x-b.x,a.y-b.y))));return}
+    if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;
+    if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>7)drag.moved=true;
+    if(drag.moved){camGoal=null;if(screenLook){screenLook=false;if(P.sit!==null)$("b-view").hidden=false}yaw-=dx*.006;pitch=Math.max(.08,Math.min(1.25,pitch+dy*.004))}});
+  const up=e=>{const wasTap=drag&&!drag.moved&&ptrs.size===1;ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=null;
+    if(wasTap)tap(e.clientX,e.clientY);if(ptrs.size===0)drag=null};
+  cvs.addEventListener("pointerup",up);cvs.addEventListener("pointercancel",e=>{ptrs.delete(e.pointerId);drag=null;pinch=null});
+  cvs.addEventListener("wheel",e=>{e.preventDefault();camGoal=null;dist=Math.max(2.4,Math.min(11,dist+e.deltaY*.005))},{passive:false});
+  const ray=new T.Raycaster(),ndc=new T.Vector2();
+  function tap(cx,cy){const r=cvs.getBoundingClientRect();ndc.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera);
+    const sh=ray.intersectObjects(seatHits,false);
+    const fh=ray.intersectObject(floor,false);
+    if(sh.length&&(!fh.length||sh[0].distance<fh[0].distance+1.2)){trySit(sh[0].object.userData.seat);return}
+    if(ray.intersectObject(screen,false).length){nextSlide();return}
+    if(fh.length){const p=fh[0].point;let tx=Math.max(-7,Math.min(7,p.x)),tz=Math.max(-10.1,Math.min(12.5,p.z));
+      if(blocked(tx,tz)){for(const dz of[.5,-.5,.9,-.9]){if(!blocked(tx,tz+dz)){tz+=dz;break}}}
+      if(blocked(tx,tz))return;
+      standUp(false);P.pendingSeat=null;P.path=planPath(tx,tz);marker(tx,tz)}}
+  const mark=new T.Mesh(new T.RingGeometry(.18,.26,24),new T.MeshBasicMaterial({color:0xf0c06a,transparent:true,opacity:0}));mark.rotation.x=-Math.PI/2;mark.position.y=.03;scene.add(mark);
+  function marker(x,z){mark.position.x=x;mark.position.z=z;mark.material.opacity=.9}
+  const keys={},J={x:0,y:0};
+  (function joystick(){const el=$("joy"),kn=$("knob");let id=null,cx=0,cy=0;const RAD=44;
+    function set(e){let dx=e.clientX-cx,dy=e.clientY-cy;const d=Math.hypot(dx,dy);if(d>RAD){dx*=RAD/d;dy*=RAD/d}
+      kn.style.transform=`translate(${dx}px,${dy}px)`;J.x=dx/RAD;J.y=dy/RAD}
+    el.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation();const r=el.getBoundingClientRect();cx=r.left+r.width/2;cy=r.top+r.height/2;id=e.pointerId;el.setPointerCapture(id);el.classList.add("active");set(e);$("hint").hidden=true});
+    el.addEventListener("pointermove",e=>{if(e.pointerId===id)set(e)});
+    const end=e=>{if(e.pointerId!==id)return;id=null;J.x=J.y=0;kn.style.transform="";el.classList.remove("active")};
+    el.addEventListener("pointerup",end);el.addEventListener("pointercancel",end)})();
+  addEventListener("keydown",e=>{if(e.target.closest&&e.target.closest("input,textarea"))return;const k=e.key.toLowerCase();if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k)){keys[k]=true;if(stage.matches(":hover")||document.activeElement===document.body)e.preventDefault()}});
+  addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false});
+
+  // ---- screen drawing
+  let slideIx=0,slideT=0;
+  function slides(){return S.config.slides&&S.config.slides.length?S.config.slides:DEFAULT.slides}
+  drawScreen=()=>{const g=scrCanvas.getContext("2d"),w=1280,h=720;
+    const bg=g.createLinearGradient(0,0,0,h);bg.addColorStop(0,"#121a2e");bg.addColorStop(1,"#0a0e18");g.fillStyle=bg;g.fillRect(0,0,w,h);
+    const sl=slides();slideIx%=sl.length;
+    const lines=sl[slideIx].split("\n").map(s=>s.trim()).filter(Boolean);
+    const src=lines.length>1&&/^[—-]\s/.test(lines[lines.length-1])?lines.pop().replace(/^[—-]\s*/,""):null;
+    let size=78;g.font=`700 ${size}px "Gowun Batang",serif`;
+    const maxW=Math.max(...lines.map(l=>g.measureText(l).width));if(maxW>1080)size=Math.floor(size*1080/maxW);
+    size=Math.min(size,Math.floor(470/Math.max(1,lines.length)/1.5));
+    g.font=`700 ${size}px "Gowun Batang",serif`;g.fillStyle="#f6f1e6";g.textAlign="center";g.textBaseline="middle";
+    const lh=size*1.5,total=lh*lines.length+(src?70:0);let y=h/2-total/2+lh/2;
+    for(const l of lines){g.fillText(l,w/2,y);y+=lh}
+    if(src){g.font='500 34px "IBM Plex Sans KR",sans-serif';g.fillStyle="#d7b56f";g.fillText(src,w/2,y+20)}
+    sl.forEach((_,i)=>{g.fillStyle=i===slideIx?"#f0c06a":"rgba(246,241,230,.25)";g.beginPath();g.arc(w/2+(i-(sl.length-1)/2)*26,h-36,6,0,7);g.fill()});
+    if(liveState().live){g.fillStyle="#b2394f";g.fillRect(36,34,150,52);g.fillStyle="#fff";g.font='700 30px "IBM Plex Sans KR",sans-serif';g.textAlign="left";g.fillText("● LIVE",56,61)}
+    scrTex.needsUpdate=true};
+  function nextSlide(){slideIx++;slideT=0;drawScreen()}
+  W.redrawScreen=()=>{slideIx=0;slideT=0;drawScreen()};
+  drawScreen();
+  if(document.fonts&&document.fonts.load)Promise.all([document.fonts.load('700 60px "Gowun Batang"'),document.fonts.load('500 30px "IBM Plex Sans KR"')]).then(drawScreen).catch(()=>{});
+
+  // ---- resize
+  function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+  new ResizeObserver(resize).observe(stage);resize();
+
+  // ---- loop
+  const camPos=new T.Vector3(0,4,16),look=new T.Vector3();
+  let last=performance.now();
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function frame(now){
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    // keyboard
+    let kx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0)+J.x,kz=(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)+J.y;
+    let moving=false;const km=Math.min(1,Math.hypot(kx,kz));
+    if(km>.12){if(P.sit!==null)standUp(false);P.path=[];P.pendingSeat=null;mark.material.opacity=0;
+      const sn=Math.sin(yaw),cs=Math.cos(yaw);let dx=kx*cs+kz*sn,dz=-kx*sn+kz*cs;const l=Math.hypot(dx,dz);dx/=l;dz/=l;
+      const sp=3*km*dt;moveBy(dx*sp,dz*sp);P.ry=Math.atan2(dx,dz);moving=true;$("where").textContent="걸어 다니는 중"}
+    else if(P.path.length){const t=P.path[0],dx=t.x-P.x,dz=t.z-P.z,d=Math.hypot(dx,dz),stepL=2.8*dt;
+      if(d<=stepL){P.x=t.x;P.z=t.z;P.path.shift();if(!P.path.length){mark.material.opacity=0;if(P.pendingSeat!==null)sitDown(P.pendingSeat);else $("where").textContent="걸어 다니는 중"}}
+      else{P.x+=dx/d*stepL;P.z+=dz/d*stepL}
+      if(d>.01)P.ry=Math.atan2(dx,dz);moving=true;send(false)}
+    if(moving)send(false);
+    flush();
+    me.g.position.set(P.x,P.sit!==null?.18:0,P.z);
+    let dr=P.ry-me.g.rotation.y;dr=Math.atan2(Math.sin(dr),Math.cos(dr));me.g.rotation.y+=dr*Math.min(1,dt*12);
+    animate(me,dt,moving&&P.sit===null);
+    for(const o of others.values()){const g=o.av.g,dx=o.tx-g.position.x,dz=o.tz-g.position.z,d=Math.hypot(dx,dz);
+      const k=Math.min(1,dt*8);g.position.x+=dx*k;g.position.z+=dz*k;g.position.y=o.av.sitting?.18:0;
+      let r=o.ry-g.rotation.y;r=Math.atan2(Math.sin(r),Math.cos(r));g.rotation.y+=r*Math.min(1,dt*10);
+      animate(o.av,dt,d>.03&&!o.av.sitting)}
+    // camera
+    if(camGoal){const k=Math.min(1,dt*3.5);let dy=camGoal.yaw-yaw;dy=Math.atan2(Math.sin(dy),Math.cos(dy));yaw+=dy*k;pitch+=(camGoal.pitch-pitch)*k;dist+=(camGoal.dist-dist)*k;
+      if(Math.abs(dy)<.002&&Math.abs(camGoal.dist-dist)<.01)camGoal=null}
+    const fovT=screenLook?44:55;if(Math.abs(camera.fov-fovT)>.05){camera.fov+=(fovT-camera.fov)*Math.min(1,dt*3);camera.updateProjectionMatrix()}
+    const tgt=new T.Vector3(P.x,P.sit!==null?1.2:1.15,P.z);
+    const want=new T.Vector3(tgt.x+Math.sin(yaw)*Math.cos(pitch)*dist,tgt.y+Math.sin(pitch)*dist,tgt.z+Math.cos(yaw)*Math.cos(pitch)*dist);
+    want.x=Math.max(-7.1,Math.min(7.1,want.x));want.z=Math.max(-14.5,Math.min(12.7,want.z));want.y=Math.max(.6,Math.min(11,want.y));
+    camPos.lerp(want,Math.min(1,dt*6));camera.position.copy(camPos);look.lerp(screenLook?SCREEN_AIM:tgt,Math.min(1,dt*(screenLook?3:8)));camera.lookAt(look);
+    // ambient
+    if(!reduce){flames.forEach((f,i)=>{const n=.85+Math.sin(now/90+i*3)*.08+Math.sin(now/37+i*1.7)*.05;if(f.l)f.l.intensity=1.2*n;f.g.scale.setScalar(f.gs*n);f.f.scale.y=1.8*n});
+      shafts.forEach(sh=>sh.m.opacity=sh.op*(.75+.25*Math.sin(now/2400+sh.ph)));
+      crossRays.material.rotation=now/40000;crossGlow.material.opacity=.85+.15*Math.sin(now/1500);
+      const pa=dGeo.attributes.position.array;for(let i=0;i<DUST;i++){pa[i*3+1]+=dt*.06;pa[i*3]+=Math.sin(now/3000+dSeed[i])*dt*.04;if(pa[i*3+1]>8)pa[i*3+1]=0}dGeo.attributes.position.needsUpdate=true}
+    if(mark.material.opacity>0)mark.scale.setScalar(1+Math.sin(now/180)*.12);
+    slideT+=dt;if(slideT>10){nextSlide()}
+    renderer.render(scene,camera);
+    requestAnimationFrame(frame)}
+  function moveBy(dx,dz){if(!blocked(P.x+dx,P.z+dz)){P.x+=dx;P.z+=dz}else if(!blocked(P.x+dx,P.z))P.x+=dx;else if(!blocked(P.x,P.z+dz))P.z+=dz}
+  requestAnimationFrame(t=>{last=t;frame(t);setTimeout(()=>{$("loading").classList.add("done");$("enter").hidden=false},250)});
+  W.ready=true;
+}
+
+/* ================= organ (generated, gentle hymn chords) ================= */
+let AC=null,organ=null;
+function startOrgan(){
+  AC=AC||new(window.AudioContext||window.webkitAudioContext)();AC.resume&&AC.resume();
+  const master=AC.createGain();master.gain.value=0;
+  const conv=AC.createConvolver(),len=AC.sampleRate*4,buf=AC.createBuffer(2,len,AC.sampleRate);
+  for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6)}conv.buffer=buf;
+  const lp=AC.createBiquadFilter();lp.type="lowpass";lp.frequency.value=1700;
+  const wet=AC.createGain();wet.gain.value=.65;const dry=AC.createGain();dry.gain.value=.35;
+  lp.connect(dry);lp.connect(conv);conv.connect(wet);dry.connect(master);wet.connect(master);master.connect(AC.destination);
+  master.gain.linearRampToValueAtTime(.15,AC.currentTime+3);
+  const chords=[[48,55,64,72],[53,57,65,72],[55,59,67,74],[48,55,64,72],[45,52,60,69],[53,60,65,69],[55,62,67,71],[48,55,64,72]];
+  let i=0,next=AC.currentTime+.1;const DUR=4.6;
+  function play(notes,t,d){for(const n of notes){const f=440*Math.pow(2,(n-69)/12);
+    for(const[type,mul,g]of[["sine",1,.22],["triangle",2,.05],["sine",.5,.1]]){const o=AC.createOscillator();o.type=type;o.frequency.value=f*mul;o.detune.value=(Math.random()-.5)*7;
+      const ga=AC.createGain();ga.gain.setValueAtTime(0,t);ga.gain.linearRampToValueAtTime(g,t+.9);ga.gain.setValueAtTime(g,t+d-.5);ga.gain.linearRampToValueAtTime(0,t+d+.5);
+      o.connect(ga);ga.connect(lp);o.start(t);o.stop(t+d+.6)}}}
+  function sched(){while(next<AC.currentTime+1.2){play(chords[i%chords.length],next,DUR);next+=DUR;i++}}
+  sched();organ={master,timer:setInterval(sched,300)};
+}
+function stopOrgan(){if(!organ)return;const{master,timer}=organ;organ=null;clearInterval(timer);const t=AC.currentTime;
+  master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(master.gain.value,t);master.gain.linearRampToValueAtTime(0,t+1.5);setTimeout(()=>master.disconnect(),1800)}
+$("b-organ").onclick=()=>{const on=!organ;try{on?startOrgan():stopOrgan()}catch{toast("이 기기에서는 소리를 낼 수 없어요");return}
+  $("b-organ").setAttribute("aria-pressed",on);$("b-organ").textContent=on?"오르간 끄기":"오르간 켜기"};
+
+/* ================= names ================= */
+function nameOf(p){const n=p.presence&&typeof p.presence.name==="string"?p.presence.name.trim().slice(0,12):"";return n||"성도"}
+
+/* ================= prayers ================= */
+function ago(t){const m=Math.round((Date.now()-t)/60000);if(m<1)return"방금";if(m<60)return m+"분 전";const h=Math.round(m/60);if(h<24)return h+"시간 전";return Math.round(h/24)+"일 전"}
+function emptyLi(t){const li=document.createElement("li");li.className="empty";li.textContent=t;return li}
+function renderPrayers(){const ul=$("prayers");ul.textContent="";
+  if(!S.fdb){ul.appendChild(emptyLi("서버를 연결하면 여기서 기도제목을 함께 나눌 수 있어요."));return}
+  if(S.prayers===null){ul.appendChild(emptyLi("기도제목을 불러오는 중이에요."));return}
+  if(!S.prayers.length){ul.appendChild(emptyLi("아직 올라온 기도제목이 없어요. 위에 첫 기도제목을 적어 주세요."));return}
+  const mine=store.get("prayed",[]);
+  for(const d of S.prayers){const v=d.v;if(!v||typeof v.text!=="string")continue;
+    const li=document.createElement("li");li.className="prayer";const p=document.createElement("p");p.textContent=v.text;li.appendChild(p);
+    const meta=document.createElement("div");meta.className="meta";const who=document.createElement("span");
+    who.textContent=(typeof v.name==="string"&&v.name?v.name:"익명")+" · "+(typeof v.createdAt==="number"?ago(v.createdAt):"");meta.appendChild(who);
+    const right=document.createElement("span");right.style.cssText="display:flex;gap:10px;align-items:center";
+    if(v.uid&&v.uid===S.myId){const del=document.createElement("button");del.className="del";del.type="button";del.textContent="지우기";
+      del.onclick=()=>{if(del.dataset.armed){S.fdb.ref("prayers/"+d.id).remove().catch(()=>{})}else{del.dataset.armed="1";del.textContent="정말 지울까요?";setTimeout(()=>{del.dataset.armed="";del.textContent="지우기"},3000)}};right.appendChild(del)}
+    const w=document.createElement("button");w.type="button";w.className="with";const done=mine.includes(d.id);w.setAttribute("aria-pressed",done);
+    w.textContent=(done?"함께 기도했어요 ":"함께 기도하기 ")+(+v.count||0);w.disabled=done;
+    w.onclick=()=>{const m=store.get("prayed",[]);if(m.includes(d.id))return;m.push(d.id);store.set("prayed",m);
+      S.fdb.ref("prayers/"+d.id+"/count").transaction(c=>(typeof c==="number"?c:0)+1).catch(()=>{});renderPrayers()};
+    right.appendChild(w);meta.appendChild(right);li.appendChild(meta);ul.appendChild(li)}}
+function note(t){const n=$("ask-note");n.hidden=false;n.textContent=t}
+let lastAsk=0;
+$("ask").addEventListener("submit",async e=>{e.preventDefault();const t=$("ask-text").value.trim();if(!t)return;
+  if(!S.fdb){note("서버가 연결되면 기도제목을 올릴 수 있어요.");return}
+  if(Date.now()-lastAsk<60000){note("잠시 후에 다시 올려 주세요. (1분에 한 번)");return}
+  const anon=$("ask-anon").checked;$("ask-btn").disabled=true;
+  try{await S.fdb.ref("prayers").push({text:t.slice(0,200),name:anon?"익명":(S.nick||"성도"),uid:S.myId,createdAt:firebase.database.ServerValue.TIMESTAMP,count:0});
+    lastAsk=Date.now();$("ask-text").value="";note("올렸어요. 함께 기도할게요.")}
+  catch{note("올리지 못했어요. 잠시 후 다시 시도해 주세요.")}$("ask-btn").disabled=false});
+
+/* ================= realtime (Firebase) ================= */
+function setCount(){const n=Math.max(S.entered?1:0,S.peers.length);$("count").textContent="지금 "+Math.max(1,n)+"명이 함께 예배 중";$("enter-count").textContent=S.peers.length}
+async function connect(){
+  const fb=CFG.firebase;
+  if(!window.firebase||!fb||!fb.apiKey||!fb.databaseURL){$("demo").hidden=false;$("enter-sub").textContent="말없이 같이 앉아 예배드리는 곳";renderPrayers();return}
+  try{
+    firebase.initializeApp(fb);
+    const cred=await firebase.auth().signInAnonymously();S.myId=cred.user.uid;S.myPeer=S.myId;
+    const db=firebase.database();S.fdb=db;
+    let skew=0;db.ref(".info/serverTimeOffset").on("value",s=>{skew=s.val()||0});
+    // everyone in the room
+    const raw=new Map(),pref=db.ref("presence");
+    const rebuild=()=>{const now=Date.now()+skew;S.peers=[...raw].filter(([k,p])=>p&&typeof p.t==="number"&&now-p.t<75000&&typeof p.x==="number")
+      .map(([k,p])=>({peer:k,sameTab:k===S.myId,kind:"viewer",presence:p}));setCount();W.syncPeers&&W.syncPeers()};
+    pref.on("child_added",c=>{raw.set(c.key,c.val());rebuild()});
+    pref.on("child_changed",c=>{raw.set(c.key,c.val());rebuild()});
+    pref.on("child_removed",c=>{raw.delete(c.key);rebuild()});
+    setInterval(rebuild,15000);
+    // my presence
+    const mine=db.ref("presence/"+S.myId);let cur={};
+    S.room={presence(patch){if(!S.entered)return Promise.resolve();Object.assign(cur,patch);
+      return mine.set({...cur,name:S.nick||"",t:firebase.database.ServerValue.TIMESTAMP})}};
+    db.ref(".info/connected").on("value",s=>{if(s.val()){mine.onDisconnect().remove();if(S.entered)W.onConnected&&W.onConnected()}});
+    setInterval(()=>{if(S.entered)mine.update({t:firebase.database.ServerValue.TIMESTAMP}).catch(()=>{})},25000);
+    // prayers
+    S.prayers=null;renderPrayers();
+    db.ref("prayers").orderByChild("createdAt").limitToLast(40).on("value",snap=>{const arr=[];snap.forEach(c=>{arr.push({id:c.key,v:c.val()})});arr.reverse();S.prayers=arr;renderPrayers()},
+      ()=>{S.prayers=[];renderPrayers()});
+  }catch(err){console.error(err);$("demo").hidden=false;$("demo").textContent="서버에 연결하지 못했어요. 혼자 둘러보는 중이에요.";renderPrayers()}
+}
+
+/* ================= boot ================= */
+if(CFG.churchName){$("church").textContent=CFG.churchName;$("enter-title").textContent=CFG.churchName;document.title=CFG.churchName}
+$("nick").value=store.get("nick","");
+$("enter").addEventListener("submit",e=>{e.preventDefault();S.nick=$("nick").value.trim().slice(0,12);store.set("nick",S.nick);
+  S.entered=true;$("enter").hidden=true;setCount();W.onConnected&&W.onConnected()});
+renderLive();renderPrayers();connect();
+})();
+</script>
+</body>
+</html>
